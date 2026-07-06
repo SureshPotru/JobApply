@@ -1,17 +1,44 @@
-﻿import logging
+import logging
 import urllib.parse
+import time
 
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+from webdriver_manager.chrome import ChromeDriverManager
 
-from src.utils.helpers import get_driver, random_sleep, scroll_down
+from src.utils.helpers import random_sleep, scroll_down
 
 logger = logging.getLogger(__name__)
 
 LINKEDIN_BASE  = "https://www.linkedin.com"
 LINKEDIN_LOGIN = "https://www.linkedin.com/login"
+
+
+def get_chrome_driver(headless=True):
+    options = Options()
+    if headless:
+        options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    options.add_argument(
+        "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    )
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    driver.implicitly_wait(5)
+    return driver
 
 
 class LinkedInScraper:
@@ -21,21 +48,30 @@ class LinkedInScraper:
         self.wait     = None
 
     def _init_driver(self):
-        self.driver = get_driver(headless=self.settings.headless)
-        self.wait   = WebDriverWait(self.driver, 15)
+        self.driver = get_chrome_driver(headless=self.settings.headless)
+        self.wait   = WebDriverWait(self.driver, 20)
 
     def _login(self):
         if not self.settings.linkedin_email:
             return False
         try:
             self.driver.get(LINKEDIN_LOGIN)
-            random_sleep(2, 4)
+            random_sleep(3, 5)
             email_f = self.wait.until(EC.presence_of_element_located((By.ID, "username")))
             email_f.clear()
-            email_f.send_keys(self.settings.linkedin_email)
-            self.driver.find_element(By.ID, "password").send_keys(self.settings.linkedin_password)
+            for c in self.settings.linkedin_email:
+                email_f.send_keys(c)
+                time.sleep(0.05)
+            pass_f = self.driver.find_element(By.ID, "password")
+            for c in self.settings.linkedin_password:
+                pass_f.send_keys(c)
+                time.sleep(0.05)
             self.driver.find_element(By.XPATH, "//button[@type='submit']").click()
-            random_sleep(3, 5)
+            random_sleep(4, 6)
+            url = self.driver.current_url
+            if "checkpoint" in url or "challenge" in url:
+                logger.warning(f"LinkedIn security checkpoint hit: {url} — skipping scrape")
+                return False
             logger.info("LinkedIn scraper: login OK")
             return True
         except Exception as exc:
@@ -46,9 +82,9 @@ class LinkedInScraper:
         params = {
             "keywords": keyword,
             "location": "Hyderabad, Telangana, India",
-            "f_E":   "4,5,6",    # Mid-Senior / Director / Executive
-            "f_TPR": "r86400",   # Past 24 hours
-            "f_LF":  "f_AL",     # Easy Apply only
+            "f_E":   "4,5,6",
+            "f_TPR": "r86400",
+            "f_LF":  "f_AL",
             "position": "1",
             "pageNum":  "0",
         }
