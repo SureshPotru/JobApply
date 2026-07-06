@@ -1,6 +1,11 @@
 import os
 
 
+def _env(name: str, default: str = "") -> str:
+    value = os.environ.get(name)
+    return value if value not in (None, "") else default
+
+
 class Settings:
     """All configuration loaded from environment variables."""
 
@@ -33,26 +38,26 @@ class Settings:
     max_applications_per_run = 15
 
     def __init__(self):
-        self.linkedin_email = os.environ.get("LINKEDIN_EMAIL", "")
-        self.linkedin_password = os.environ.get("LINKEDIN_PASSWORD", "")
+        self.linkedin_email = _env("LINKEDIN_EMAIL")
+        self.linkedin_password = _env("LINKEDIN_PASSWORD")
 
-        self.naukri_email = os.environ.get("NAUKRI_EMAIL", "")
-        self.naukri_password = os.environ.get("NAUKRI_PASSWORD", "")
+        self.naukri_email = _env("NAUKRI_EMAIL")
+        self.naukri_password = _env("NAUKRI_PASSWORD")
 
         # Preferred SMTP secrets (works with Brevo/Outlook/custom providers)
         # Backward-compatible fallback to legacy Gmail secret names.
-        self.smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-        self.smtp_port = int(os.environ.get("SMTP_PORT", "465"))
-        self.smtp_use_ssl = os.environ.get("SMTP_USE_SSL", "true").lower() in ("1", "true", "yes")
-        self.smtp_user = os.environ.get("SMTP_USER", os.environ.get("GMAIL_USER", ""))
-        self.smtp_password = os.environ.get("SMTP_PASSWORD", os.environ.get("GMAIL_APP_PASSWORD", ""))
-        self.smtp_from = os.environ.get("SMTP_FROM", self.smtp_user)
-        self.alert_email = os.environ.get("ALERT_EMAIL", "")
+        self.smtp_host = _env("SMTP_HOST", "smtp.gmail.com")
+        self.smtp_port = int(_env("SMTP_PORT", "465"))
+        self.smtp_use_ssl = _env("SMTP_USE_SSL", "true").lower() in ("1", "true", "yes")
+        self.smtp_user = _env("SMTP_USER", _env("GMAIL_USER"))
+        self.smtp_password = _env("SMTP_PASSWORD", _env("GMAIL_APP_PASSWORD"))
+        self.smtp_from = _env("SMTP_FROM", self.smtp_user)
+        self.alert_email = _env("ALERT_EMAIL")
 
-        self.twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID", "")
-        self.twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
-        self.twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
-        self.whatsapp_to = os.environ.get("WHATSAPP_TO", "")
+        self.twilio_account_sid = _env("TWILIO_ACCOUNT_SID")
+        self.twilio_auth_token = _env("TWILIO_AUTH_TOKEN")
+        self.twilio_whatsapp_from = _env("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+        self.whatsapp_to = _env("WHATSAPP_TO")
 
         self.db_path = "data/applied_jobs.db"
         self.headless = True
