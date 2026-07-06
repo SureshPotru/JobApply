@@ -1,4 +1,4 @@
-﻿name: Daily DevOps Job Auto-Apply
+name: Daily DevOps Job Auto-Apply
 
 on:
   schedule:
@@ -25,6 +25,25 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+
+      - name: Check secrets are configured
+        run: |
+          echo "=== Checking secrets (shows SET or MISSING, never the value) ==="
+          if [ -z "$LINKEDIN_EMAIL" ];    then echo "LINKEDIN_EMAIL   : MISSING"; else echo "LINKEDIN_EMAIL   : SET"; fi
+          if [ -z "$NAUKRI_EMAIL" ];      then echo "NAUKRI_EMAIL     : MISSING"; else echo "NAUKRI_EMAIL     : SET"; fi
+          if [ -z "$GMAIL_USER" ];        then echo "GMAIL_USER       : MISSING"; else echo "GMAIL_USER       : SET"; fi
+          if [ -z "$GMAIL_APP_PASSWORD" ];then echo "GMAIL_APP_PASSWORD: MISSING"; else echo "GMAIL_APP_PASSWORD: SET"; fi
+          if [ -z "$ALERT_EMAIL" ];       then echo "ALERT_EMAIL      : MISSING"; else echo "ALERT_EMAIL      : SET"; fi
+          if [ -z "$TWILIO_ACCOUNT_SID" ];then echo "TWILIO_ACCOUNT_SID: MISSING"; else echo "TWILIO_ACCOUNT_SID: SET"; fi
+          if [ -z "$WHATSAPP_TO" ];       then echo "WHATSAPP_TO      : MISSING"; else echo "WHATSAPP_TO      : SET"; fi
+        env:
+          LINKEDIN_EMAIL:        ${{ secrets.LINKEDIN_EMAIL }}
+          NAUKRI_EMAIL:          ${{ secrets.NAUKRI_EMAIL }}
+          GMAIL_USER:            ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD:    ${{ secrets.GMAIL_APP_PASSWORD }}
+          ALERT_EMAIL:           ${{ secrets.ALERT_EMAIL }}
+          TWILIO_ACCOUNT_SID:    ${{ secrets.TWILIO_ACCOUNT_SID }}
+          WHATSAPP_TO:           ${{ secrets.WHATSAPP_TO }}
 
       - name: Install Google Chrome
         run: |
