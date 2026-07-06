@@ -33,20 +33,26 @@ class Settings:
     max_applications_per_run = 15
 
     def __init__(self):
-        self.linkedin_email    = os.environ.get("LINKEDIN_EMAIL", "")
+        self.linkedin_email = os.environ.get("LINKEDIN_EMAIL", "")
         self.linkedin_password = os.environ.get("LINKEDIN_PASSWORD", "")
 
-        self.naukri_email    = os.environ.get("NAUKRI_EMAIL", "")
+        self.naukri_email = os.environ.get("NAUKRI_EMAIL", "")
         self.naukri_password = os.environ.get("NAUKRI_PASSWORD", "")
 
-        self.gmail_user         = os.environ.get("GMAIL_USER", "")
-        self.gmail_app_password = os.environ.get("GMAIL_APP_PASSWORD", "")
-        self.alert_email        = os.environ.get("ALERT_EMAIL", "")
+        # Preferred SMTP secrets (works with Brevo/Outlook/custom providers)
+        # Backward-compatible fallback to legacy Gmail secret names.
+        self.smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+        self.smtp_port = int(os.environ.get("SMTP_PORT", "465"))
+        self.smtp_use_ssl = os.environ.get("SMTP_USE_SSL", "true").lower() in ("1", "true", "yes")
+        self.smtp_user = os.environ.get("SMTP_USER", os.environ.get("GMAIL_USER", ""))
+        self.smtp_password = os.environ.get("SMTP_PASSWORD", os.environ.get("GMAIL_APP_PASSWORD", ""))
+        self.smtp_from = os.environ.get("SMTP_FROM", self.smtp_user)
+        self.alert_email = os.environ.get("ALERT_EMAIL", "")
 
-        self.twilio_account_sid   = os.environ.get("TWILIO_ACCOUNT_SID", "")
-        self.twilio_auth_token    = os.environ.get("TWILIO_AUTH_TOKEN", "")
+        self.twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID", "")
+        self.twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
         self.twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
-        self.whatsapp_to          = os.environ.get("WHATSAPP_TO", "")
+        self.whatsapp_to = os.environ.get("WHATSAPP_TO", "")
 
-        self.db_path  = "data/applied_jobs.db"
+        self.db_path = "data/applied_jobs.db"
         self.headless = True
