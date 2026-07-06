@@ -105,15 +105,14 @@ def run_pipeline():
     total = len(all_applied)
     logger.info(f"Pipeline summary: {total} application(s) submitted")
 
-    if total > 0 or all_errors:
-        try:
-            EmailNotifier(settings).send_summary(all_applied, all_errors)
-        except Exception as exc:
-            logger.error(f"Email failed: {exc}")
-        try:
-            WhatsAppNotifier(settings).send_summary(total, all_applied[:5], all_errors)
-        except Exception as exc:
-            logger.error(f"WhatsApp failed: {exc}")
+    try:
+        EmailNotifier(settings).send_summary(all_applied, all_errors)
+    except Exception as exc:
+        logger.error(f"Email failed: {exc}")
+    try:
+        WhatsAppNotifier(settings).send_summary(total, all_applied[:5], all_errors)
+    except Exception as exc:
+        logger.error(f"WhatsApp failed: {exc}")
 
     logger.info("=" * 65)
     logger.info(f"  Pipeline COMPLETE -- {total} job(s) applied")
