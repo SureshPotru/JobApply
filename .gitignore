@@ -1,0 +1,17 @@
+﻿.env
+*.env
+__pycache__/
+*.py[cod]
+env/
+venv/
+.venv/
+*.egg-info/
+data/*.log
+data/screenshots/
+.local-chromium/
+chromedriver
+chromedriver.exe
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

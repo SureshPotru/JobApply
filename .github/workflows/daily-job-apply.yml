@@ -1,0 +1,74 @@
+﻿name: Daily DevOps Job Auto-Apply
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 8:30 AM IST  (3:00 AM UTC)
+    - cron: '0 8 * * *'   # 1:30 PM IST  (8:00 AM UTC)
+  workflow_dispatch:       # Manual trigger via Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  auto-apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Google Chrome
+        run: |
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
+            | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update -q
+          sudo apt-get install -y google-chrome-stable
+          google-chrome --version
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create data directory
+        run: mkdir -p data
+
+      - name: Run auto-apply pipeline
+        env:
+          LINKEDIN_EMAIL:        ${{ secrets.LINKEDIN_EMAIL }}
+          LINKEDIN_PASSWORD:     ${{ secrets.LINKEDIN_PASSWORD }}
+          NAUKRI_EMAIL:          ${{ secrets.NAUKRI_EMAIL }}
+          NAUKRI_PASSWORD:       ${{ secrets.NAUKRI_PASSWORD }}
+          GMAIL_USER:            ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD:    ${{ secrets.GMAIL_APP_PASSWORD }}
+          ALERT_EMAIL:           ${{ secrets.ALERT_EMAIL }}
+          TWILIO_ACCOUNT_SID:    ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN:     ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_WHATSAPP_FROM:  ${{ secrets.TWILIO_WHATSAPP_FROM }}
+          WHATSAPP_TO:           ${{ secrets.WHATSAPP_TO }}
+        run: python main.py
+
+      - name: Persist applied-jobs database
+        run: |
+          git config --global user.name "DevOps Job Bot"
+          git config --global user.email "bot@github-actions.com"
+          git add data/applied_jobs.db 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "chore: update applied jobs db [skip ci]"
+          git push
+        continue-on-error: true
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-logs-${{ github.run_number }}
+          path: data/pipeline.log
+          retention-days: 30
