@@ -1,4 +1,4 @@
-﻿import smtplib
+import smtplib
 import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -12,35 +12,45 @@ class EmailNotifier:
         self.settings = settings
 
     def send_summary(self, applied_jobs: list, errors: list = None):
-        if not (self.settings.gmail_user and self.settings.gmail_app_password):
-            logger.warning("Gmail credentials not set -- skipping email")
+        if not (self.settings.smtp_user and self.settings.smtp_password):
+            logger.warning("SMTP credentials not set -- skipping email")
             return
         if not self.settings.alert_email:
             logger.warning("ALERT_EMAIL not set -- skipping email")
             return
-        total   = len(applied_jobs)
+
+        total = len(applied_jobs)
         subject = f"DevOps Job Report {datetime.now().strftime('%d %b %Y')} -- {total} Applied"
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"]    = self.settings.gmail_user
-        msg["To"]      = self.settings.alert_email
+        msg["From"] = self.settings.smtp_from
+        msg["To"] = self.settings.alert_email
         msg.attach(MIMEText(self._build_html(applied_jobs, errors), "html"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as srv:
-            srv.login(self.settings.gmail_user, self.settings.gmail_app_password)
-            srv.sendmail(self.settings.gmail_user, self.settings.alert_email, msg.as_string())
-        logger.info(f"Email sent to {self.settings.alert_email}")
+
+        if self.settings.smtp_use_ssl:
+            with smtplib.SMTP_SSL(self.settings.smtp_host, self.settings.smtp_port) as srv:
+                srv.login(self.settings.smtp_user, self.settings.smtp_password)
+                srv.sendmail(self.settings.smtp_from, self.settings.alert_email, msg.as_string())
+        else:
+            with smtplib.SMTP(self.settings.smtp_host, self.settings.smtp_port) as srv:
+                srv.ehlo()
+                srv.starttls()
+                srv.ehlo()
+                srv.login(self.settings.smtp_user, self.settings.smtp_password)
+                srv.sendmail(self.settings.smtp_from, self.settings.alert_email, msg.as_string())
+
+        logger.info(f"Email sent to {self.settings.alert_email} via {self.settings.smtp_host}")
 
     def _build_html(self, jobs: list, errors: list = None) -> str:
-        date_str     = datetime.now().strftime("%B %d, %Y at %I:%M %p IST")
-        total        = len(jobs)
+        date_str = datetime.now().strftime("%B %d, %Y at %I:%M %p IST")
+        total = len(jobs)
         linkedin_cnt = sum(1 for j in jobs if j.get("platform") == "LinkedIn")
-        naukri_cnt   = sum(1 for j in jobs if j.get("platform") == "Naukri")
+        naukri_cnt = sum(1 for j in jobs if j.get("platform") == "Naukri")
 
         rows = ""
         for job in jobs:
             skill_tags = "".join(
-                f'<span style="background:#e8f4f8;padding:2px 6px;border-radius:3px;'
-                f'font-size:11px;margin:2px;display:inline-block">{s}</span>'
+                f'<span style="background:#e8f4f8;padding:2px 6px;border-radius:3px;font-size:11px;margin:2px;display:inline-block">{s}</span>'
                 for s in job.get("matched_skills", [])[:6]
             )
             rows += (
@@ -81,22 +91,22 @@ class EmailNotifier:
                 f"<ul style='margin:0;padding-left:18px'>{items}</ul></div>"
             )
 
-        return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="font-family:Arial,sans-serif;max-width:960px;margin:0 auto;padding:20px;color:#333">
-<div style="background:linear-gradient(135deg,#0073b1,#00a0dc);padding:28px;border-radius:10px;color:white;margin-bottom:24px">
-<h1 style="margin:0;font-size:22px">DevOps Job Auto-Apply Report</h1>
-<p style="margin:6px 0 0;opacity:.9;font-size:14px">{date_str}</p></div>
-<div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap">
-<div style="flex:1;min-width:120px;padding:18px;background:#e8f8f0;border-radius:8px;text-align:center">
-<div style="font-size:34px;font-weight:bold;color:#27ae60">{total}</div>
-<div style="color:#555;font-size:13px">Total Applied</div></div>
-<div style="flex:1;min-width:120px;padding:18px;background:#e8f4f8;border-radius:8px;text-align:center">
-<div style="font-size:34px;font-weight:bold;color:#0073b1">{linkedin_cnt}</div>
-<div style="color:#555;font-size:13px">LinkedIn</div></div>
-<div style="flex:1;min-width:120px;padding:18px;background:#fef9e7;border-radius:8px;text-align:center">
-<div style="font-size:34px;font-weight:bold;color:#f39c12">{naukri_cnt}</div>
-<div style="color:#555;font-size:13px">Naukri</div></div></div>
+        return f"""<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head>
+<body style=\"font-family:Arial,sans-serif;max-width:960px;margin:0 auto;padding:20px;color:#333\">
+<div style=\"background:linear-gradient(135deg,#0073b1,#00a0dc);padding:28px;border-radius:10px;color:white;margin-bottom:24px\">
+<h1 style=\"margin:0;font-size:22px\">DevOps Job Auto-Apply Report</h1>
+<p style=\"margin:6px 0 0;opacity:.9;font-size:14px\">{date_str}</p></div>
+<div style=\"display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap\">
+<div style=\"flex:1;min-width:120px;padding:18px;background:#e8f8f0;border-radius:8px;text-align:center\">
+<div style=\"font-size:34px;font-weight:bold;color:#27ae60\">{total}</div>
+<div style=\"color:#555;font-size:13px\">Total Applied</div></div>
+<div style=\"flex:1;min-width:120px;padding:18px;background:#e8f4f8;border-radius:8px;text-align:center\">
+<div style=\"font-size:34px;font-weight:bold;color:#0073b1\">{linkedin_cnt}</div>
+<div style=\"color:#555;font-size:13px\">LinkedIn</div></div>
+<div style=\"flex:1;min-width:120px;padding:18px;background:#fef9e7;border-radius:8px;text-align:center\">
+<div style=\"font-size:34px;font-weight:bold;color:#f39c12\">{naukri_cnt}</div>
+<div style=\"color:#555;font-size:13px\">Naukri</div></div></div>
 {job_table}{error_section}
-<div style="margin-top:20px;padding:14px;background:#f8f9fa;border-radius:8px;font-size:12px;color:#777">
+<div style=\"margin-top:20px;padding:14px;background:#f8f9fa;border-radius:8px;font-size:12px;color:#777\">
 <strong>Criteria:</strong> DevOps | Hyderabad, Telangana | 5+ Years | AWS, Kubernetes, Docker, Terraform, EKS, GitHub Actions
 </div></body></html>"""
