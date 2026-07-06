@@ -1,4 +1,4 @@
-﻿import os
+import os
 
 
 class Settings:
@@ -14,16 +14,20 @@ class Settings:
     location = "Hyderabad"
     min_experience = 5
 
+    # Include role-level keywords so title-only cards still match
     target_skills = [
         "AWS", "Kubernetes", "Docker", "Terraform", "Git", "GitHub Actions",
         "EKS", "CI/CD", "Jenkins", "Prometheus", "Grafana", "Datadog",
         "Ansible", "Helm", "ArgoCD", "Linux", "Bash", "Python",
         "CloudWatch", "EC2", "S3", "VPC", "IAM",
         "PagerDuty", "ELK", "Elasticsearch", "Nagios", "Zabbix",
+        # Role keywords so title match guarantees a non-zero score
+        "DevOps", "SRE", "Site Reliability", "Cloud", "Platform", "DevSecOps",
+        "Infra", "Infrastructure",
     ]
 
-    # Minimum % of target skills that must appear in the job posting
-    min_skill_match = 30
+    # 10% = need just 1 keyword match — role name in title alone is sufficient
+    min_skill_match = 10
 
     # Max applications per platform per run
     max_applications_per_run = 15
