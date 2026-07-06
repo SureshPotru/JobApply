@@ -11,6 +11,19 @@ class EmailNotifier:
     def __init__(self, settings):
         self.settings = settings
 
+    def _send_with_ssl(self, host: str, port: int, user: str, password: str, sender: str, recipient: str, message: str):
+        with smtplib.SMTP_SSL(host, port, timeout=30) as srv:
+            srv.login(user, password)
+            srv.sendmail(sender, recipient, message)
+
+    def _send_with_starttls(self, host: str, port: int, user: str, password: str, sender: str, recipient: str, message: str):
+        with smtplib.SMTP(host, port, timeout=30) as srv:
+            srv.ehlo()
+            srv.starttls()
+            srv.ehlo()
+            srv.login(user, password)
+            srv.sendmail(sender, recipient, message)
+
     def send_summary(self, applied_jobs: list, errors: list = None):
         if not (self.settings.smtp_user and self.settings.smtp_password):
             logger.warning("SMTP credentials not set -- skipping email")
@@ -26,20 +39,54 @@ class EmailNotifier:
         msg["From"] = self.settings.smtp_from
         msg["To"] = self.settings.alert_email
         msg.attach(MIMEText(self._build_html(applied_jobs, errors), "html"))
+        payload = msg.as_string()
 
-        if self.settings.smtp_use_ssl:
-            with smtplib.SMTP_SSL(self.settings.smtp_host, self.settings.smtp_port) as srv:
-                srv.login(self.settings.smtp_user, self.settings.smtp_password)
-                srv.sendmail(self.settings.smtp_from, self.settings.alert_email, msg.as_string())
-        else:
-            with smtplib.SMTP(self.settings.smtp_host, self.settings.smtp_port) as srv:
-                srv.ehlo()
-                srv.starttls()
-                srv.ehlo()
-                srv.login(self.settings.smtp_user, self.settings.smtp_password)
-                srv.sendmail(self.settings.smtp_from, self.settings.alert_email, msg.as_string())
+        # Attempt configured mode first, then explicit fallbacks for common provider configs.
+        attempts = [
+            (self.settings.smtp_host, self.settings.smtp_port, self.settings.smtp_use_ssl),
+            (self.settings.smtp_host, 465, True),
+            (self.settings.smtp_host, 587, False),
+        ]
 
-        logger.info(f"Email sent to {self.settings.alert_email} via {self.settings.smtp_host}")
+        seen = set()
+        last_error = None
+        for host, port, use_ssl in attempts:
+            key = (host, port, use_ssl)
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                if use_ssl:
+                    self._send_with_ssl(
+                        host,
+                        port,
+                        self.settings.smtp_user,
+                        self.settings.smtp_password,
+                        self.settings.smtp_from,
+                        self.settings.alert_email,
+                        payload,
+                    )
+                else:
+                    self._send_with_starttls(
+                        host,
+                        port,
+                        self.settings.smtp_user,
+                        self.settings.smtp_password,
+                        self.settings.smtp_from,
+                        self.settings.alert_email,
+                        payload,
+                    )
+                logger.info(
+                    f"Email sent to {self.settings.alert_email} via {host}:{port} ({'SSL' if use_ssl else 'STARTTLS'})"
+                )
+                return
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    f"SMTP attempt failed ({host}:{port}, {'SSL' if use_ssl else 'STARTTLS'}): {exc}"
+                )
+
+        raise RuntimeError(f"All SMTP attempts failed: {last_error}")
 
     def _build_html(self, jobs: list, errors: list = None) -> str:
         date_str = datetime.now().strftime("%B %d, %Y at %I:%M %p IST")
