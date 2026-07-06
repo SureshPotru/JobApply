@@ -31,14 +31,16 @@ jobs:
           echo "=== Checking secrets (shows SET or MISSING, never the value) ==="
           if [ -z "$LINKEDIN_EMAIL" ];    then echo "LINKEDIN_EMAIL   : MISSING"; else echo "LINKEDIN_EMAIL   : SET"; fi
           if [ -z "$NAUKRI_EMAIL" ];      then echo "NAUKRI_EMAIL     : MISSING"; else echo "NAUKRI_EMAIL     : SET"; fi
-          if [ -z "$GMAIL_USER" ];        then echo "GMAIL_USER       : MISSING"; else echo "GMAIL_USER       : SET"; fi
-          if [ -z "$GMAIL_APP_PASSWORD" ];then echo "GMAIL_APP_PASSWORD: MISSING"; else echo "GMAIL_APP_PASSWORD: SET"; fi
+          if [ -z "$SMTP_USER" ] && [ -z "$GMAIL_USER" ]; then echo "SMTP/GMAIL USER  : MISSING"; else echo "SMTP/GMAIL USER  : SET"; fi
+          if [ -z "$SMTP_PASSWORD" ] && [ -z "$GMAIL_APP_PASSWORD" ]; then echo "SMTP/GMAIL PASS  : MISSING"; else echo "SMTP/GMAIL PASS  : SET"; fi
           if [ -z "$ALERT_EMAIL" ];       then echo "ALERT_EMAIL      : MISSING"; else echo "ALERT_EMAIL      : SET"; fi
           if [ -z "$TWILIO_ACCOUNT_SID" ];then echo "TWILIO_ACCOUNT_SID: MISSING"; else echo "TWILIO_ACCOUNT_SID: SET"; fi
           if [ -z "$WHATSAPP_TO" ];       then echo "WHATSAPP_TO      : MISSING"; else echo "WHATSAPP_TO      : SET"; fi
         env:
           LINKEDIN_EMAIL:        ${{ secrets.LINKEDIN_EMAIL }}
           NAUKRI_EMAIL:          ${{ secrets.NAUKRI_EMAIL }}
+          SMTP_USER:             ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD:         ${{ secrets.SMTP_PASSWORD }}
           GMAIL_USER:            ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD:    ${{ secrets.GMAIL_APP_PASSWORD }}
           ALERT_EMAIL:           ${{ secrets.ALERT_EMAIL }}
@@ -66,6 +68,12 @@ jobs:
           LINKEDIN_PASSWORD:     ${{ secrets.LINKEDIN_PASSWORD }}
           NAUKRI_EMAIL:          ${{ secrets.NAUKRI_EMAIL }}
           NAUKRI_PASSWORD:       ${{ secrets.NAUKRI_PASSWORD }}
+          SMTP_HOST:             ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:             ${{ secrets.SMTP_PORT }}
+          SMTP_USE_SSL:          ${{ secrets.SMTP_USE_SSL }}
+          SMTP_USER:             ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD:         ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM:             ${{ secrets.SMTP_FROM }}
           GMAIL_USER:            ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD:    ${{ secrets.GMAIL_APP_PASSWORD }}
           ALERT_EMAIL:           ${{ secrets.ALERT_EMAIL }}
