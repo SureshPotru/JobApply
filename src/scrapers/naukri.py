@@ -102,18 +102,10 @@ class NaukriScraper:
             f"?experience={exp}&nignbevent_src=jobsearchDesk"
         )
 
-    # ------------------------------------------------------------------ #
-    # Extract ALL card data via JavaScript in one shot so we never        #
-    # navigate away before collecting all titles/URLs from a results page  #
-    # ------------------------------------------------------------------ #
     def _extract_cards_js(self):
-        """
-        Use JavaScript to pull job data from every card on the current page.
-        Returns a list of dicts: {title, company, url, location, exp, skills}.
-        """
+        """Extract all job card data in one JavaScript call to avoid stale-element issues."""
         script = """
         var results = [];
-        // Try several card container selectors Naukri has used over the years
         var cardSelectors = [
             'article.jobTuple', 'div.jobTuple',
             '.srp-jobtuple-wrapper', '.cust-job-tuple',
@@ -127,11 +119,10 @@ class NaukriScraper:
         cards.forEach(function(card) {
             var title = '', url = '', company = '', loc = '', exp = '', skills = '';
 
-            // Title & URL
             var titleSelectors = [
                 '.title a', 'a.title', '.jobTitle a',
                 'h2 a', '[class*="title"] a', '.job-title a',
-                'a[href*="naukri.com"]', 'a[class*="row1"]'
+                'a[href*="naukri.com"]'
             ];
             for (var ts of titleSelectors) {
                 var el = card.querySelector(ts);
@@ -142,58 +133,47 @@ class NaukriScraper:
                 }
             }
             if (!title) {
-                // Fallback: first anchor with reasonable text
                 var anchors = card.querySelectorAll('a');
                 for (var a of anchors) {
                     var t = a.textContent.trim();
-                    if (t && t.length > 3 && t.length < 100) {
+                    if (t && t.length > 5 && t.length < 100 && !t.toLowerCase().includes('apply')) {
                         title = t; url = a.href || ''; break;
                     }
                 }
             }
 
-            // Company
             var compSelectors = [
-                '.comp-name', 'a.comp-name', '.companyInfo a',
-                '[class*="comp-name"]', '[class*="company"] a',
-                '[class*="company"]'
+                '.comp-name', 'a.comp-name', '[class*="comp-name"]',
+                '[class*="company"] a', '[class*="company"]'
             ];
             for (var cs of compSelectors) {
                 var el = card.querySelector(cs);
-                if (el && el.textContent.trim()) {
-                    company = el.textContent.trim(); break;
-                }
+                if (el && el.textContent.trim()) { company = el.textContent.trim(); break; }
             }
 
-            // Location
             var locSelectors = [
-                '.location span', '[class*="location"]', '[class*="loc"]', '.loc'
+                '.location span', '[class*="location"]', '[class*="loc"]'
             ];
             for (var ls of locSelectors) {
                 var el = card.querySelector(ls);
-                if (el && el.textContent.trim()) {
-                    loc = el.textContent.trim(); break;
-                }
+                if (el && el.textContent.trim()) { loc = el.textContent.trim(); break; }
             }
 
-            // Experience
             var expSelectors = [
-                '.expwdth', '.experience', '[class*="exp"]:not([class*="expand"])'
+                '.expwdth', '.experience',
+                '[class*="exp"]:not([class*="expand"]):not([class*="experience"])'
             ];
             for (var es of expSelectors) {
                 var el = card.querySelector(es);
-                if (el && el.textContent.trim()) {
-                    exp = el.textContent.trim(); break;
-                }
+                if (el && el.textContent.trim()) { exp = el.textContent.trim(); break; }
             }
 
-            // Skills / tags
             var tagEls = card.querySelectorAll('.tags li, [class*="skill"] li, [class*="tag"] li');
             if (tagEls.length) {
                 skills = Array.from(tagEls).map(function(e){ return e.textContent.trim(); }).join(', ');
             }
 
-            if (title) {
+            if (title && url) {
                 results.push({
                     title: title, url: url, company: company,
                     location: loc || 'Hyderabad', experience: exp, skills: skills
@@ -207,32 +187,6 @@ class NaukriScraper:
         except Exception as exc:
             logger.debug(f"_extract_cards_js error: {exc}")
             return []
-
-    def _get_job_description(self, url):
-        if not url:
-            return "", ""
-        try:
-            self.driver.get(url)
-            random_sleep(2, 3)
-            desc, skills = "", ""
-            for sel in [
-                ".job-desc", ".jd-desc", "#job-description",
-                ".dang-inner-html", "[class*='job-desc']"
-            ]:
-                try:
-                    el = self.driver.find_element(By.CSS_SELECTOR, sel)
-                    desc = el.text[:3000]
-                    break
-                except Exception: pass
-            key_skills = self.driver.find_elements(
-                By.CSS_SELECTOR, ".key-skill span, .tags li, .skills span"
-            )
-            if key_skills:
-                skills = ", ".join(s.text for s in key_skills if s.text)
-            return desc, skills
-        except Exception as exc:
-            logger.debug(f"Naukri detail error: {exc}")
-            return "", ""
 
     def search_jobs(self):
         self._init_driver()
@@ -249,50 +203,34 @@ class NaukriScraper:
                 scroll_down(self.driver)
                 random_sleep(2, 3)
 
-                # --- Step 1: grab ALL card data in a single JS call ---
+                # Collect all card data via single JS call (no navigation = no stale refs)
                 raw_cards = self._extract_cards_js()
+                logger.info(f"Naukri '{slug}': {len(raw_cards)} cards parsed")
 
-                # Fallback: count visible cards with DOM selectors for logging
-                card_count = len(raw_cards)
-                if card_count == 0:
-                    for sel in [
-                        "article.jobTuple", "div.jobTuple",
-                        ".srp-jobtuple-wrapper", ".cust-job-tuple",
-                        "[class*='jobTuple']", "[class*='job-tuple']",
-                    ]:
-                        elems = self.driver.find_elements(By.CSS_SELECTOR, sel)
-                        if elems:
-                            card_count = len(elems)
-                            break
-
-                logger.info(f"Naukri '{slug}': {card_count} cards / {len(raw_cards)} parsed")
-
-                # --- Step 2: deduplicate then fetch descriptions ---
                 for raw in raw_cards[:20]:
                     url    = raw.get("url", "")
-                    job_id = url.split("-")[-1].split("?")[0] if url else (raw.get("title","") + raw.get("company",""))[:40]
+                    job_id = (
+                        url.split("-")[-1].split("?")[0]
+                        if url
+                        else (raw.get("title", "") + raw.get("company", ""))[:40]
+                    )
                     if not job_id or job_id in seen_ids:
                         continue
                     seen_ids.add(job_id)
 
-                    # Navigate to job detail page to get full description
-                    desc, extra_skills = self._get_job_description(url)
-                    skills = extra_skills or raw.get("skills", "")
-
                     all_jobs.append({
-                        "job_id":     job_id,
-                        "title":      raw.get("title", ""),
-                        "company":    raw.get("company", ""),
-                        "location":   raw.get("location", "Hyderabad"),
-                        "experience": raw.get("experience", ""),
-                        "skills":     skills,
-                        "url":        url,
-                        "platform":   "Naukri",
-                        "description": desc,
+                        "job_id":      job_id,
+                        "title":       raw.get("title", ""),
+                        "company":     raw.get("company", ""),
+                        "location":    raw.get("location", "Hyderabad"),
+                        "experience":  raw.get("experience", ""),
+                        "skills":      raw.get("skills", ""),
+                        "url":         url,
+                        "platform":    "Naukri",
+                        "description": raw.get("title", "") + " " + raw.get("skills", ""),
                     })
-                    random_sleep(1, 2)
 
-                random_sleep(3, 6)
+                random_sleep(3, 5)
             except Exception as exc:
                 logger.error(f"Naukri search error '{slug}': {exc}")
 
