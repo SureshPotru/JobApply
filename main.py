@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 DevOps Job Auto-Apply Pipeline
 
@@ -46,7 +46,7 @@ def run_platform(name, scraper_cls, apply_cls, settings, matcher, db):
     finally:
         scraper.close()
 
-    matched  = matcher.filter_jobs(jobs)
+    matched = matcher.filter_jobs(jobs)
     logger.info(f"[{name}] {len(matched)} jobs matched filters")
 
     new_jobs = db.filter_new_jobs(matched)
@@ -83,8 +83,8 @@ def run_pipeline():
     logger.info("=" * 65)
 
     settings = Settings()
-    db       = JobDatabase(settings.db_path)
-    matcher  = JobMatcher(settings)
+    db = JobDatabase(settings.db_path)
+    matcher = JobMatcher(settings)
 
     all_applied, all_errors = [], []
 
@@ -105,14 +105,21 @@ def run_pipeline():
     total = len(all_applied)
     logger.info(f"Pipeline summary: {total} application(s) submitted")
 
-    try:
-        EmailNotifier(settings).send_summary(all_applied, all_errors)
-    except Exception as exc:
-        logger.error(f"Email failed: {exc}")
-    try:
-        WhatsAppNotifier(settings).send_summary(total, all_applied[:5], all_errors)
-    except Exception as exc:
-        logger.error(f"WhatsApp failed: {exc}")
+    if settings.enable_email_alerts:
+        try:
+            EmailNotifier(settings).send_summary(all_applied, all_errors)
+        except Exception as exc:
+            logger.error(f"Email failed: {exc}")
+    else:
+        logger.info("Email alerts disabled (ENABLE_EMAIL_ALERTS=false)")
+
+    if settings.enable_whatsapp_alerts:
+        try:
+            WhatsAppNotifier(settings).send_summary(total, all_applied[:5], all_errors)
+        except Exception as exc:
+            logger.error(f"WhatsApp failed: {exc}")
+    else:
+        logger.info("WhatsApp alerts disabled (ENABLE_WHATSAPP_ALERTS=false)")
 
     logger.info("=" * 65)
     logger.info(f"  Pipeline COMPLETE -- {total} job(s) applied")
