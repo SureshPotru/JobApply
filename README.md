@@ -1,4 +1,4 @@
-﻿# DevOps Job Auto-Apply Pipeline
+# DevOps Job Auto-Apply Pipeline
 
 Automated daily pipeline that searches **LinkedIn** and **Naukri**, filters by your skills,
 and auto-applies to matching DevOps jobs in Hyderabad. Sends **Email** and **WhatsApp** alerts.
@@ -31,14 +31,14 @@ Scraper   Scraper
   Job Matcher
   - Location: Hyderabad
   - Experience: 5+ yrs
-  - Skill match >= 30%
+  - Skill match >= 10%
        |
   Duplicate Filter (SQLite)
        |
    Auto Apply
   /         \
 Email     WhatsApp
-(Gmail)   (Twilio)
+(SMTP)    (Twilio)
 ```
 
 ---
@@ -58,7 +58,7 @@ JobApply/
 |   |   +-- linkedin_apply.py LinkedIn Easy Apply automation
 |   |   +-- naukri_apply.py   Naukri Quick Apply automation
 |   +-- notifications/
-|   |   +-- email_notifier.py    HTML email via Gmail SMTP
+|   |   +-- email_notifier.py    HTML email via SMTP
 |   |   +-- whatsapp_notifier.py WhatsApp via Twilio
 |   +-- utils/
 |       +-- db.py             SQLite applied-jobs tracker
@@ -85,26 +85,39 @@ JobApply/
 | `LINKEDIN_PASSWORD` | Your LinkedIn password |
 | `NAUKRI_EMAIL` | Your Naukri login email |
 | `NAUKRI_PASSWORD` | Your Naukri password |
-| `GMAIL_USER` | Gmail address to send alerts FROM |
-| `GMAIL_APP_PASSWORD` | Gmail App Password (16-char) - see Step 3 |
+| `SMTP_HOST` | SMTP host (Brevo: `smtp-relay.brevo.com`) |
+| `SMTP_PORT` | SMTP port (Brevo: `587`) |
+| `SMTP_USE_SSL` | `false` for TLS (Brevo 587), `true` for SSL |
+| `SMTP_USER` | SMTP username/login |
+| `SMTP_PASSWORD` | SMTP password/key |
+| `SMTP_FROM` | Sender email (verified in SMTP provider) |
 | `ALERT_EMAIL` | Email address to RECEIVE daily reports |
 | `TWILIO_ACCOUNT_SID` | From Twilio Console |
 | `TWILIO_AUTH_TOKEN` | From Twilio Console |
 | `TWILIO_WHATSAPP_FROM` | `whatsapp:+14155238886` (Twilio sandbox) |
 | `WHATSAPP_TO` | Your number e.g. `whatsapp:+919XXXXXXXXX` |
 
-### Step 2 - Activate Twilio WhatsApp Sandbox
+> Legacy support still exists for `GMAIL_USER` + `GMAIL_APP_PASSWORD`.
+
+### Step 2 - Brevo SMTP (Recommended)
+
+1. Create free account: https://www.brevo.com/
+2. Add and verify your sender email/domain in Brevo
+3. Create SMTP key in Brevo settings
+4. Set these repo secrets:
+   - `SMTP_HOST=smtp-relay.brevo.com`
+   - `SMTP_PORT=587`
+   - `SMTP_USE_SSL=false`
+   - `SMTP_USER=<your_brevo_login>`
+   - `SMTP_PASSWORD=<your_brevo_smtp_key>`
+   - `SMTP_FROM=<verified_sender_email>`
+
+### Step 3 - Activate Twilio WhatsApp Sandbox
 
 1. Sign up free at https://www.twilio.com/try-twilio
 2. Open WhatsApp on your phone
 3. Send `join <your-sandbox-keyword>` to **+1-415-523-8886**
 4. You will get a confirmation message
-
-### Step 3 - Generate Gmail App Password
-
-1. Enable 2-Step Verification on your Google account
-2. Go to https://myaccount.google.com/apppasswords
-3. Create password for "Mail" and use the 16-char code as `GMAIL_APP_PASSWORD`
 
 ### Step 4 - Enable GitHub Actions
 
@@ -155,7 +168,7 @@ Edit `config/settings.py` to change search behaviour:
 ```python
 search_keywords          = ["DevOps Engineer", "SRE", ...]
 target_skills            = ["AWS", "Kubernetes", ...]
-min_skill_match          = 30    # lower = more jobs applied
+min_skill_match          = 10    # lower = more jobs applied
 max_applications_per_run = 15
 min_experience           = 5
 ```
